@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# Password generator
+
+LENGTH="${1:-16}"
+
+head /dev/urandom | tr -dc A-Za-z0-9 | head -c $LENGTH

@@ -1,0 +1,44 @@
+#!/usr/bin/php
+<?php
+
+// Get files with a version number greater than the one entered
+
+$root_dir = dirname(__DIR__);
+
+$initial_version = !empty($argv[1]) ? $argv[1] : null;
+$dir_versions = !empty($argv[2]) ? $argv[2] : null;
+$include_initial_version = !empty($argv[3]) ? $argv[3] : '';
+$operator = in_array(strtolower($include_initial_version), ['true', 'yes', 'y', 's', 'si', 'sim', '1']) ? '>=' : '>';
+
+if (empty($initial_version) || empty($dir_versions)) {
+    echo "Usage: v-version-list <initial-version> <dir-versions> [<include-initial-version>]\n";
+    exit(1);
+} elseif (!is_dir($dir_versions)) {
+    echo "$dir_versions not found.\n";
+    exit(1);
+}
+
+$versions = [];
+$dir_iterator = new DirectoryIterator($dir_versions);
+foreach ($dir_iterator as $fileinfo) {
+    $filename = $fileinfo->getPathname();
+    $basename = $fileinfo->getFilename();
+
+    $file_version = pathinfo($basename, PATHINFO_FILENAME);
+    if (!in_array($basename, ['.', '..']) && (version_compare($file_version, $initial_version, $operator))) {
+        $versions[] = $filename;
+    }
+}
+
+// Order by version number
+usort($versions, function ($item1, $item2) {
+    $item1_version = pathinfo(basename($item1), PATHINFO_FILENAME);
+    $item2_version = pathinfo(basename($item2), PATHINFO_FILENAME);
+
+    return version_compare($item1_version, $item2_version);
+});
+
+if (!empty($result = implode("\n", $versions))) {
+    echo "$result\n";
+}
+

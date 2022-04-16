@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Create backup from /conf
+
+MAX_HISTORY_ITEMS=15
+
+# Check if exists a backup in progress
+if [[ ! -d /var/run/backup-conf.lock ]]; then
+    [[ -e /var/run/backup-conf.lock ]] && unlink /var/run/backup-conf.lock
+    ln -s /proc/$BASHPID /var/run/backup-conf.lock
+else
+    echo "There is already a process running" >&2
+    exit
+fi
+
+file_name="conf-$(date +'%Y-%m-%d-%H-%M-%S').zip"
+
+zip -rq "/tmp/$file_name" /conf
+mkdir -p /backup/conf
+mv "/tmp/$file_name" "/backup/conf/$file_name"
+
+# Remove old items from history
+ls -1t /backup/conf/conf-*.zip | tail -n +$((MAX_HISTORY_ITEMS + 1)) | xargs -i -d '\n' rm -f {}
+
+unlink /var/run/backup-conf.lock

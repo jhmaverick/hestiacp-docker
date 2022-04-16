@@ -1,0 +1,19 @@
+#!/usr/bin/php
+<?php
+
+// Compare two versions
+
+$root_dir = dirname(__DIR__);
+
+$version_a = !empty($argv[1]) ? $argv[1] : null;
+$version_b = !empty($argv[2]) ? $argv[2] : null;
+$operator = !empty($argv[3]) ? $argv[3] : null;
+
+if (empty($version_a) || empty($version_b)) {
+    echo "Usage: v-version-compare <version-a> <version-b> [<operator>]\n";
+    exit(1);
+}
+
+if (version_compare($version_a, $version_b, $operator)) {
+    echo "1\n";
+}

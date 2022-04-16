@@ -1,0 +1,181 @@
+# syntax=docker/dockerfile:1.3-labs
+FROM debian:buster AS hestiacp-base
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 \
+    RUN_IN_CONTAINER=1
+
+RUN apt-get -y update \
+    && apt-get -y upgrade \
+    && apt-get -y install --no-install-recommends liblwp-protocol-https-perl wget curl locales git zip unzip \
+        sudo apt-utils build-essential libpam-pwdfile libwww-perl rsyslog sysv-rc-conf software-properties-common \
+        iptables iproute2 dnsutils iputils-ping net-tools strace lsof dsniff runit-systemd cron incron rsync file \
+        jq acl openssl openvpn vim htop geoip-database dirmngr gnupg zlib1g-dev lsb-release apt-transport-https \
+        ca-certificates perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev \
+        libxslt1.1 libxslt1-dev libxslt-dev lftp libmaxminddb0 libmaxminddb-dev mmdb-bin python python3 python-pip \
+        python3-pip isync \
+    && test -L /sbin/chkconfig || ln -sf /usr/sbin/sysv-rc-conf /sbin/chkconfig \
+    && test -L /sbin/nologin || ln -sf /usr/sbin/nologin /sbin/nologin \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN sed -ie 's/# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
+    && locale-gen en_US.UTF-8 \
+    && dpkg-reconfigure locales \
+    && update-locale LANG=en_US.UTF-8 LANGUAGE=en_US.UTF-8 LC_ALL=en_US.UTF-8 LC_CTYPE=en_US.UTF-8
+
+ENV GTK_IM_MODULE=cedilla QT_IM_MODULE=cedilla \
+    LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 LC_CTYPE=en_US.UTF-8 LANGUAGE=en_US.UTF-8
+
+
+# Get systemctl script from docker systemctl replacement to avoid problems with systemd in docker
+# https://github.com/gdraheim/docker-systemctl-replacement
+RUN dsr_tag="v1.5.4505"; \
+    wget https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/${dsr_tag}/files/docker/systemctl3.py -O /usr/bin/systemctl \
+    && chmod +x /usr/bin/systemctl \
+    && test -L /bin/systemctl || ln -sf /usr/bin/systemctl /bin/systemctl \
+    && wget https://raw.githubusercontent.com/gdraheim/docker-systemctl-replacement/${dsr_tag}/files/docker/journalctl3.py -O /usr/bin/journalctl \
+    && chmod +x /usr/bin/journalctl \
+    && test -L /bin/journalctl || ln -sf /usr/bin/journalctl /bin/journalctl
+
+
+###
+## Install and cofigure Hestia
+##
+## * Clone the repository and perform a checkout for the chosen version tag;
+## * Create an installer for docker making the necessary changes to run the installation;
+## * Compile Hestia packages;
+## * Run the installer with the compiled packages.
+###
+ARG HESTIA_VERSION
+ARG MULTIPHP_VERSIONS
+ARG MARIADB_CLIENT_VERSION
+
+RUN cd /tmp \
+    && git clone https://github.com/hestiacp/hestiacp.git \
+    && cd /tmp/hestiacp \
+    && git checkout "tags/${HESTIA_VERSION}" -b "${HESTIA_VERSION}" \
+# Use debian installer to create installer version for docker
+    && cp -af /tmp/hestiacp/install/hst-install-debian.sh /tmp/hestiacp/install/hst-install-debian-docker.sh \
+### PHP
+    && if [ ! -z "$MULTIPHP_VERSIONS" ]; then \
+        sed -Ei "s|^(multiphp_v=).*|\1\(${MULTIPHP_VERSIONS}\)|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1; \
+    fi \
+# prevents php installation errors
+    && sed -Ei "s|(check_result \\\$\? \"php-fpm start failed\")|#\1|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+### MariaDB
+# Change MariaDB Version
+    && if [ ! -z "$MARIADB_CLIENT_VERSION" ]; then \
+      sed -Ei "s|^(mariadb_v=\").*(\")$|\1${MARIADB_CLIENT_VERSION}\2|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1; \
+    fi \
+# Remove MariaDB Server from installer
+    && sed -Ei "s|\- MariaDB Database Server|\- MariaDB Database Client|g" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+    && sed -Ei "s|(mariadb-common) mariadb-server|\1|g" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+    && sed -Ezi "s|(.*Configure MariaDB[\ #\n\-]*if )(\[ \"\\\$mysql\" = 'yes' \])|\1\[ 1 = 2 \]|g" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+    && sed -Ei "s|(.*/v-add-database-host .*)|echo \"---\"|g" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+# Disable PHPMyAdmin database configuration
+    && sed -Ei "s|(.*/phpmyadmin/pma.sh.*)|#\1|g" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+# Disable Roundcube database configuration
+    && sed -Ei "s|(if \[ ).*\"\\\$DB_SYSTEM\".*( \]; then)|\1\"1\" = \"2\"\2|" /tmp/hestiacp/bin/v-add-sys-roundcube || exit 1 \
+### Hestia
+# Remove Hestia source from apt list to prevent upgrade after install
+    && sed -Ei "/\[ \* \] Hestia Control Panel/,/^gpg.*hestia/ s/(.*)/#\1/" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+# Removes the server's default domain creation
+    && sed -Ei "s|(\\\$HESTIA/bin/v-add-web-domain admin \\\$servername)|\#\1|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+    && sed -Ei "s|(check_result \\\$\? \"can't create \\\$servername domain\")|#\1|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
+# Avoid errors caused by "reload-or-restart" when trying to restart services
+    && sed -Ei "s%systemctl reload\-or\-restart .*%service \"\\\$service\" reload > /dev/null 2>\&1 || service \"\\\$service\" restart > /dev/null 2>\&1%g" /tmp/hestiacp/bin/v-restart-service || exit 1 \
+### Compile Hestia Packages
+    && cd /tmp/hestiacp/src \
+    && bash ./hst_autocompile.sh --all --noinstall --keepbuild '~localsrc' \
+    && mv /tmp/hestiacp-src /tmp/hestiacp/docker-src \
+### Install Hestia
+    && cd /tmp/hestiacp/install \
+    && bash ./hst-install-debian-docker.sh --apache no --phpfpm yes --multiphp yes --vsftpd yes --proftpd no \
+        --named yes --mysql yes --postgresql no --exim yes --dovecot yes --sieve no --clamav yes --spamassassin yes \
+        --iptables yes --fail2ban yes --quota yes --api yes --interactive no --port 8083 \
+        --hostname hestiacp.localhost --email admin@admin.com --password admin --lang en \
+        --with-debs /tmp/hestiacp/docker-src/deb/ --force \
+# Remove the installation log from the root dir to keep it accessible after volumes are created
+    && mv /root/hst_install_backups /opt/hst_install_backups \
+# Cleanup image
+#    && rm -rf /etc/apt/sources.list.d/* \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /tmp/*
+
+ENV HESTIA=/usr/local/hestia \
+    PATH=/usr/local/hestia/bin:$PATH
+
+# Check if changes on Hestia were lost
+RUN if grep "reload-or-restart" /usr/local/hestia/bin/v-restart-service; then \
+        echo "Hestia's changes were lost"; \
+        exit 1; \
+    fi \
+# Generate a diff log from the installer
+    && diff /usr/local/hestia/install/hst-install-debian.sh /usr/local/hestia/install/hst-install-debian-docker.sh | tee /opt/hst_install_backups/installer-diff.txt >/dev/null \
+# Remove autoupdate cron
+    && /usr/local/hestia/bin/v-delete-cron-hestia-autoupdate \
+# Remove buttons from Hestia update page
+    && sed -i "/type=\"checkbox\"/d" /usr/local/hestia/web/templates/pages/list_updates.html \
+    && sed -Ei "/href=\"<\?=\\\$btn_url\;\?>\"/d" /usr/local/hestia/web/templates/pages/list_updates.html \
+# Block updates of Hestia packages in APT
+    && apt-mark hold hestia \
+    && apt-mark hold hestia-nginx \
+    && apt-mark hold hestia-php \
+# Removes all scripts that can update Hestia
+    && echo 'exit' > /usr/local/hestia/bin/v-add-cron-hestia-autoupdate \
+    && echo 'exit' > /usr/local/hestia/bin/v-delete-cron-hestia-autoupdate \
+    && echo 'exit' > /usr/local/hestia/bin/v-update-sys-hestia \
+    && echo 'exit' > /usr/local/hestia/bin/v-update-sys-hestia-all \
+    && echo 'exit' > /usr/local/hestia/bin/v-update-sys-hestia-git \
+# Checks if File Manager was installed with Hestia
+    && if [ ! -d /usr/local/hestia/web/fm ]; then \
+        /usr/local/hestia/bin/v-add-sys-filemanager; \
+    fi \
+# Removes dangerous functions that may cause some problems when running in the container
+    && echo "" > /usr/local/hestia/bin/v-add-sys-filemanager \
+    && echo "" > /usr/local/hestia/bin/v-delete-sys-filemanager \
+    && echo "" > /usr/local/hestia/bin/v-add-sys-roundcube \
+    && echo "" > /usr/local/hestia/bin/v-add-sys-rainloop \
+    && echo "" > /usr/local/hestia/bin/v-add-sys-pma-sso \
+    && echo "" > /usr/local/hestia/bin/v-delete-sys-pma-sso \
+    && echo "" > /usr/local/hestia/bin/v-add-web-php \
+    && echo "" > /usr/local/hestia/bin/v-delete-web-php
+
+
+FROM hestiacp-base AS hestiacp
+
+###
+## Final configuration
+###
+
+# Get "my_init" script from phusion baseimage
+# https://github.com/phusion/baseimage-docker
+RUN wget https://raw.githubusercontent.com/phusion/baseimage-docker/focal-1.0.0/image/bin/my_init -O /bin/my_init \
+    && chmod +x /bin/my_init \
+    && mkdir -p /etc/my_init.d
+
+COPY rootfs /
+ENV PATH=/usr/local/hstc/bin:$PATH
+
+# Save build settings
+ARG HSTC_IMAGE_VERSION
+RUN echo "HSTC_IMAGE_VERSION=$HSTC_IMAGE_VERSION" >> /usr/local/hstc/build.conf \
+    && echo "HESTIA_IMAGE_BUILD_DATE=$(date +'%Y-%m-%d\ %H:%M:%S')" >> /usr/local/hstc/build.conf \
+# Apply necessary rewrites in Hestia
+    && bash /usr/local/hstc/install/hestia-rewrite.sh \
+# Create directories that will be used by volumes
+    && mkdir -p /backup \
+    && mkdir -p /conf
+
+CMD ["/bin/my_init"]
+EXPOSE 80 443 8083 3306 25 465 587 2525 143 993 110 995 53/udp 53/tcp 953/tcp 20 21 12000-12100 22222
+VOLUME ["/conf", "/home", "/backup", "/var/log", "/var/cache/nginx", "/var/lib/clamav"]
+WORKDIR /
+
+
+###
+## Final version with persistent files applied
+###
+#FROM hestiacp-base AS hestiacp-final
+
+RUN bash /usr/local/hstc/install/add-default-persistent-files.sh

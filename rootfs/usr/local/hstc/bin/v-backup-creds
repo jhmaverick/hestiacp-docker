@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Backup system credentials
+
+watched="$1"
+event_flags="$2"
+event_related="$3"
+
+MAX_HISTORY_ITEMS=50
+
+backup_cred() {
+    file_path="$1"
+    file_name="$(basename -- "$file_path")"
+    file_content=""
+
+    for f in /home/*; do
+        user="$(basename -- "$f")"
+
+        linha="$(cat "$file_path" | grep -E "^$user(\_[^:]*)?:")"
+        if [[ "$linha" ]]; then
+            file_content+="$linha\n"
+        fi
+    done
+
+    # Remove duplicate lines and save to file
+    echo -en "$file_content" | awk '!seen[$0]++' >"/conf/creds/$file_name"
+    chmod 600 "/conf/creds/$file_name"
+
+    # Create a copy in the history
+    cp -a "/conf/creds/$file_name" "/backup/creds/$(date +'%Y-%m-%d-%H-%M-%S')_${file_name}"
+
+    # Remove old items from history
+    ls -1t /backup/creds/*_${file_name} | tail -n +$((MAX_HISTORY_ITEMS + 1)) | xargs -i -d '\n' rm -f /backup/creds/{}
+}
+
+mkdir -p /conf/creds
+mkdir -p /backup/creds
+
+if [[ "$event_flags" == "IN_IGNORED" ]]; then
+    /usr/bin/incrontab -d 2>/dev/null
+else
+    if [[ "$watched" && -f "$watched" ]]; then
+        backup_cred "$watched"
+    elif [[ ! "$watched" ]]; then
+        # Backup all creds
+        backup_cred "/etc/passwd"
+        backup_cred "/etc/shadow"
+        backup_cred "/etc/group"
+        backup_cred "/etc/gshadow"
+    fi
+fi

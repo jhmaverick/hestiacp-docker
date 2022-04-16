@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+if [[ "$DOCKER_ENV" == "local" || "$DOCKER_ENV" == "testing" ]]; then
+    mkdir -p "$PROJECT_ROOT/data"
+
+    export CONTAINER_INFRA="local"
+    export HESTIACP_HOSTNAME="${HESTIACP_HOSTNAME:-$(hostname --fqdn)}"
+    export EXTERNAL_IP="${EXTERNAL_IP:-127.0.0.1}"
+
+    # Enable docker buildkit
+    export DOCKER_BUILDKIT=1
+fi

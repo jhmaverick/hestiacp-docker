@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Check persistent data item
+
+watched="$1"
+event_flags="$2"
+event_related="$3"
+
+echo "$(date +'%Y-%m-%d %H:%M:%S'): $event_flags - $watched - $event_related" >> /tmp/check-persistent.txt
+
+full_path="$(readlink -e "$watched")"
+if [[ ! "$full_path" || "$(echo "$full_path" | grep -E "^(/conf|/home|/backup|/$)")" ]]; then
+    echo "Invalid path."
+    exit
+fi
+
+if [[ "$event_flags" == "IN_IGNORED" ]]; then
+    /usr/bin/incrontab -d 2>/dev/null
+elif [[ "$watched" && -e "$watched" && ! -L "$watched" ]]; then
+    # Remove previous version of file
+    if [[ -e "/conf${full_path}" ]]; then
+        rm -rf "/conf${full_path}"
+    fi
+
+    # Make sure the directory hierarchy exists
+    if [[ ! -d "$(dirname "/conf$full_path")" ]]; then
+        mkdir -p "$(dirname "/conf$full_path")"
+    fi
+
+    # Update file in volume and recreate the symlink
+    mv -f "$full_path" "/conf$full_path"
+    ln -s "/conf$full_path" "$full_path"
+
+    /usr/bin/incrontab -d 2>/dev/null
+elif [[ "$watched" && ! -e "$watched" && -L "$watched" ]]; then
+    # Fix broken data in volume
+    if [[ ! -e "/conf${full_path}" && -e "/conf-start${full_path}" ]]; then
+        cp -af "/conf-start${full_path}" "/conf${full_path}"
+    fi
+fi

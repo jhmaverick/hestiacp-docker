@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+custom_args=""
+
+#target_name="$1"
+target_name="hestiacp"
+tag_prefix=""
+
+args=("$@")
+for arg in ${args[@]}; do
+    if [[ "$arg" == "--no-cache" ]]; then
+        custom_args+=" --no-cache"
+    elif [[ "$arg" == "--pull-os" ]]; then
+        docker pull debian:buster
+    fi
+done
+
+if [[ "$target_name" != "hestiacp" ]]; then
+    tag_prefix="$(echo "$target_name" | sed -En "s|^hestiacp\-||p")-"
+fi
+
+docker image build $custom_args --force-rm \
+    --build-arg BUILDKIT_INLINE_CACHE=1 \
+    --build-arg HESTIA_VERSION="$HESTIA_VERSION" \
+    --build-arg HSTC_IMAGE_VERSION="$HSTC_IMAGE_VERSION" \
+    -t "jhmaverick/hestiacp:${tag_prefix}$HSTC_IMAGE_VERSION" \
+    -f "$PROJECT_ROOT/Dockerfile" \
+    --progress=plain \
+    "$PROJECT_ROOT"
+
+#    --target "$target_name" \
+

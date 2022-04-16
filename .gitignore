@@ -1,0 +1,48 @@
+### Project
+/rootfs/usr/local/hstc/build.conf
+
+### Docker
+/**/.env
+/data/
+/docker-compose.override.yml
+
+### Composer
+/**/composer.phar
+/**/vendor/
+
+### Node NPM
+/**/node_modules/
+
+### JetBrains
+/.idea/*
+!/.idea/modules.xml
+!/.idea/*.iml
+!/.idea/webResources.xml
+!/.idea/runConfigurations/
+!/.idea/php-docker-settings.xml
+!/.idea/scopes/
+!/.idea/codeStyles/codeStyleConfig.xml
+!/.idea/codeStyles/Project.xml
+!/.idea/inspectionProfiles/Project_Default.xml
+!/.idea/encodings.xml
+!/.idea/vcs.xml
+!/.idea/misc.xml
+!/.idea/sqldialects.xml
+!/.idea/externalDependencies.xml
+!/.idea/laravel-plugin.xml
+!/.idea/jsLibraryMappings.xml
+!/.idea/jsLinters/eslint.xml
+!/.idea/prettier.xml
+!/.idea/php.xml
+!/.idea/phpunit.xml
+
+### VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/

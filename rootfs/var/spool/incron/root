@@ -1,0 +1,4 @@
+/etc/passwd     IN_CLOSE_WRITE,IN_ATTRIB,IN_DELETE_SELF       /bin/bash /usr/local/hstc/bin/v-backup-creds $@ $% $#
+/etc/shadow     IN_CLOSE_WRITE,IN_ATTRIB,IN_DELETE_SELF       /bin/bash /usr/local/hstc/bin/v-backup-creds $@ $% $#
+/etc/group      IN_CLOSE_WRITE,IN_ATTRIB,IN_DELETE_SELF       /bin/bash /usr/local/hstc/bin/v-backup-creds $@ $% $#
+/etc/gshadow    IN_CLOSE_WRITE,IN_ATTRIB,IN_DELETE_SELF       /bin/bash /usr/local/hstc/bin/v-backup-creds $@ $% $#

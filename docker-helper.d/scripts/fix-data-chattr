@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+# Solves permission issue that doesn't let you delete users directories in data
+
+if [[ ! -d "$PROJECT_ROOT"/data/home || ! "$(ls -A "$PROJECT_ROOT"/data/home)" ]]; then
+    echo "Home directory not found"
+    exit
+fi
+
+for f in "$PROJECT_ROOT"/data/home/*; do
+    sudo chattr -iAd "$f/conf"
+done
+
+echo "Successfully applied!"

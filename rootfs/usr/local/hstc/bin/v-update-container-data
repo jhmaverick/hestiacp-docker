@@ -1,0 +1,95 @@
+#!/bin/bash
+
+# Update persistent data
+#
+# The update will only be performed if the image version is higher than the one stored in the "/usr/local/hestia/conf/hstc.conf"
+
+source "/usr/local/hstc/func/env-file.sh"
+
+if [[ "$1" == "force" ]]; then
+    force="1"
+fi
+
+# Checks if volumes have already been initialized
+if [[ ! -f /usr/local/hestia/conf/hstc.conf ]]; then
+    echo "The first run has not yet been carried out"
+    exit
+fi
+
+# Load variables from build
+env_read "/usr/local/hstc/build.conf"
+
+# Get current version of files in volume
+CURRENT_HSTC_VERSION="$(env_get_value /usr/local/hestia/conf/hstc.conf "CONTAINER_VERSION")"
+CHECK_HSTC_VERSION="$(/usr/local/hstc/bin/v-version-compare "$HSTC_IMAGE_VERSION" "$CURRENT_HSTC_VERSION" ">")"
+if [[ "$force" || "$CHECK_HSTC_VERSION" == "1" ]]; then
+    echo "-- The volumes files will be synchronized with the ones in the image"
+    echo "Current version: $CURRENT_HSTC_VERSION"
+    echo "Updating files to version: $HSTC_IMAGE_VERSION..."
+
+    # Update version number in Hestia conf
+    CURRENT_HESTIA_VERSION=$(sed -En "s|^VERSION='(.*)'|\1|p" /conf/usr/local/hestia/conf/hestia.conf)
+    HESTIA_VERSION=$(sed -En "s|^VERSION='(.*)'|\1|p" /conf-start/usr/local/hestia/conf/hestia.conf)
+    if [[ "$HESTIA_VERSION" ]]; then
+        env_add /usr/local/hestia/conf/hestia.conf "VERSION" "$HESTIA_VERSION"
+    fi
+
+    # Run Hestia Upgrades
+#    if [[ -d /usr/local/hestia/install/upgrade/versions && "$(ls -A /usr/local/hestia/install/upgrade/versions)" ]]; then
+#        update_list="$(/usr/local/hstc/bin/v-version-list "$CURRENT_HESTIA_VERSION" /usr/local/hestia/install/upgrade/versions)"
+#        for i in $update_list; do
+#            bash "$i"
+#        done
+#    fi
+
+    # Update packages and templates
+    cp -af /conf-start/usr/local/hestia/data/packages/* /conf/usr/local/hestia/data/packages
+    cp -af /conf-start/usr/local/hestia/data/templates/mail/nginx/* /usr/local/hestia/data/templates/mail/nginx
+    cp -af /conf-start/usr/local/hestia/data/templates/web/nginx/* /usr/local/hestia/data/templates/web/nginx
+    cp -af /conf-start/usr/local/hestia/data/templates/web/php-fpm/* /usr/local/hestia/data/templates/web/php-fpm
+    cp -af /conf-start/usr/local/hestia/data/templates/dns/* /usr/local/hestia/data/templates/dns
+    rm -rf /conf/usr/local/hestia/data/templates/web/unassigned/*
+    cp -af /conf-start/usr/local/hestia/data/templates/web/unassigned/* /conf/usr/local/hestia/data/templates/web/unassigned/
+    rm -rf /conf/usr/local/hestia/data/templates/web/skel/*
+    cp -af /conf-start/usr/local/hestia/data/templates/web/skel/* /conf/usr/local/hestia/data/templates/web/skel/
+    rm -rf /conf/usr/local/hestia/data/templates/web/suspend/*
+    cp -af /conf-start/usr/local/hestia/data/templates/web/suspend/* /conf/usr/local/hestia/data/templates/web/suspend/
+    cp -af /conf-start/etc/ssh/ssh_config /conf/etc/ssh/ssh_config
+    cp -af /conf-start/etc/ssh/sshd_config /conf/etc/ssh/sshd_config
+
+#    rsync -av /conf-start/usr/local/hestia/data/ /conf/usr/local/hestia/data
+
+    # Search for new versions of php
+    for php_path in /conf-start/etc/php/*; do
+        php_version="$(basename -- "$php_path")"
+
+        if [[ ! -d "/conf/etc/php/${php_version}" ]]; then
+            cp -a "/conf-start/etc/php/${php_version}" "/conf/etc/php/${php_version}"
+        fi
+    done
+
+    # Update root cron file
+    cp -af /conf-start/var/spool/cron/crontabs/root /var/spool/cron/crontabs/root
+
+    # Update users packages
+    for package in /conf/usr/local/hestia/data/packages/*.pkg; do
+        package_name="$(basename -- "$package")"
+        package_name="${package_name%.*}"
+
+        /usr/local/hestia/bin/v-update-user-package "$package_name"
+    done
+
+    # Run updates from container
+    if [[ -d /usr/local/hstc/updates && "$(ls -A /usr/local/hstc/updates)" ]]; then
+        update_list="$(/usr/local/hstc/bin/v-version-list "$CURRENT_HSTC_VERSION" /usr/local/hstc/updates)"
+        for i in $update_list; do
+            bash "$i"
+        done
+    fi
+
+    # Update version number in the container conf
+    env_add /usr/local/hestia/conf/hstc.conf "CONTAINER_VERSION" "$HSTC_IMAGE_VERSION"
+else
+    echo -e "The file system is up to date!" >&2
+    exit
+fi

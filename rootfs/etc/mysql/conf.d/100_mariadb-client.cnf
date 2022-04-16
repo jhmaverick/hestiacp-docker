@@ -1,0 +1,4 @@
+[client]
+host            = mariadb
+protocol        = tcp
+port            = 3306
