@@ -8,7 +8,6 @@ chmod +x /usr/local/hstc/bin/*
 echo 'root' >> /etc/incron.allow
 
 # Change incron permissions
-#chown root:systemd-bus-proxy /var/spool/incron/root
 chmod 600 /var/spool/incron/root
 
 # Change cron permissions
@@ -75,7 +74,6 @@ sed -i "s|phpmyadmin.inc|general/phpmyadmin.inc|g" /usr/local/hestia/data/templa
 sed -i "s|\$dir_name != \$_SERVER\[\"DOCUMENT_ROOT\"\].'/rrd'|\!in_array\(\$dir_name, \[\$_SERVER[\"DOCUMENT_ROOT\"\].'/rrd', '/conf'.\$_SERVER\[\"DOCUMENT_ROOT\"\].'/rrd']\)|" /usr/local/hestia/web/list/rrd/image.php
 
 # Remove mysql from services list
-#sed -Ei "s|(ksort\(\\\$data\);)|\1\nif \(isset\(\\\$data\['mysql'\]\)\) unset\(\\\$data\['mysql'\]\);|" /usr/local/hestia/web/list/server/index.php
 check_mysql_services="\nif \(isset\(\\\$data\['mysql'\]\)\) unset\(\\\$data\['mysql'\]\);"
 check_mysql_services+="\nif \(isset\(\\\$data\['mariadb'\]\)\) unset\(\\\$data\['mariadb'\]\);"
 sed -Ei "s|(ksort\(\\\$data\);)|\1$check_mysql_services|" /usr/local/hestia/web/list/server/index.php
@@ -110,7 +108,6 @@ NEOF
 rm -f /etc/nginx/conf.d/172.*.conf
 
 # Move configurations file to "general"
-#find /etc/nginx/conf.d/ -maxdepth 1 -not \( -name 'domains' -or -name 'general' -or -name 'pre-domains' \) -exec mv {} /etc/nginx/conf.d/general \;
 find /etc/nginx/conf.d/ -maxdepth 1 -type f -exec mv {} /etc/nginx/conf.d/general \;
 
 
@@ -118,23 +115,10 @@ find /etc/nginx/conf.d/ -maxdepth 1 -type f -exec mv {} /etc/nginx/conf.d/genera
 ## PHPMyAdmin
 ###
 # Change PHPMyAdmin configuration script to enable connection to external MariaDB servers
-sed -Ei "s|\\\$\(gen_pass\)|\\\${1:-\\\$\(v-gen-pass\)}|" /usr/local/hestia/install/deb/phpmyadmin/pma.sh
+sed -Ei "s|\\\$\(gen_pass\)|\\\${1:-\\\$\(/usr/local/hstc/bin/v-gen-pass\)}|" /usr/local/hestia/install/deb/phpmyadmin/pma.sh
 sed -Ei "s|(\['host'\] = ')localhost(';)|\1mariadb\2|" /usr/local/hestia/install/deb/phpmyadmin/pma.sh
 sed -Ei "s|@'localhost'|@'%'|g" /usr/local/hestia/install/deb/phpmyadmin/pma.sh
 sed -Ei "s|\\\$HESTIA_INSTALL_DIR|/usr/local/hestia/install/deb|" /usr/local/hestia/install/deb/phpmyadmin/pma.sh
-
-
-###
-## Bind(Named)
-###
-## Remove Hestia configs from named.conf
-#mkdir -p /etc/bind/conf.d
-#cat /etc/bind/named.conf | sed -e "/^\/\/.*/d" -e "/^$/d" -e "/^include /d" > /etc/bind/conf.d/hestia.conf
-#chown bind:bind -R /etc/bind/conf.d
-#echo "$(sed -e "/^zone /d" /etc/bind/named.conf)" > /etc/bind/named.conf
-#echo "include \"/etc/bind/conf.d/hestia.conf\";" >> /etc/bind/named.conf
-#find /usr/local/hestia -type f -print0 | xargs -0 sed -i "s|'/etc/bind/named.conf'|'/etc/bind/conf.d/hestia.conf'|g"
-#find /usr/local/hestia -type f -print0 | xargs -0 sed -i "s|\"/etc/bind/named.conf\"|\"/etc/bind/conf.d/hestia.conf\"|g"
 
 
 ###

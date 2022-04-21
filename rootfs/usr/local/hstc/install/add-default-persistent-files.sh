@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Default persistent files list
+
 mkdir -p /conf-start
 
 #bash /usr/local/hstc/install/make-persistent.sh /etc/bind/conf.d
@@ -8,6 +10,7 @@ bash /usr/local/hstc/install/make-persistent.sh /etc/bind/named.conf.options yes
 bash /usr/local/hstc/install/make-persistent.sh /etc/exim4/domains
 bash /usr/local/hstc/install/make-persistent.sh /etc/fail2ban/jail.local yes
 bash /usr/local/hstc/install/make-persistent.sh /etc/nginx/conf.d/domains
+#bash /usr/local/hstc/install/make-persistent.sh /etc/nginx/conf.d/fastcgi_cache_pool.conf yes
 bash /usr/local/hstc/install/make-persistent.sh /etc/nginx/conf.d/pre-domains
 for php_path in /etc/php/*; do
     php_version="$(basename -- "$php_path")";

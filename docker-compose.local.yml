@@ -3,28 +3,19 @@ version: "3.8"
 services:
 
   hestiacp:
-    image: "jhmaverick/hestiacp:${HSTC_IMAGE_VERSION:-latest}"
+    image: "${HESTIACP_IMAGE:?}"
     restart: "no"
     environment:
-      CONTAINER_INFRA: "local"
+      DEV_MODE: "yes"
     volumes:
       - ./data/backup:/backup
       - ./data/conf:/conf
       - ./data/home:/home
       - ./rootfs/usr/local/hstc/bin:/usr/local/hstc/bin
       - ./rootfs/usr/local/hstc/func:/usr/local/hstc/func
-      - ./scripts-dev:/scripts-dev
+      - ./rootfs/usr/local/hstc/updates:/usr/local/hstc/updates
 
   mariadb:
     restart: "no"
-#    logging:
-#      driver: none
     volumes:
       - ./data/mariadb:/var/lib/mysql
-
-networks:
-  default:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.49.0.0/16

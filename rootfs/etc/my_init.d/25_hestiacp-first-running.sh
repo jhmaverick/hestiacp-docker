@@ -29,7 +29,7 @@ if [[ "$FIRST_RUNNING" == "yes" ]]; then
     chmod 660 /usr/local/hestia/ssl/*
     rm /tmp/hst.pem
 
-    if [[ "${CONTAINER_INFRA,,}" != "local" ]]; then
+    if [[ "${DEV_MODE,,}" != "yes" ]]; then
         # Update dhparam
         openssl dhparam -out /etc/ssl/dhparam.pem 2048
 
@@ -42,7 +42,7 @@ if [[ "$FIRST_RUNNING" == "yes" ]]; then
     /usr/local/hestia/bin/v-add-dns-domain "admin" "$HOSTNAME" "$external_ip"
     /usr/local/hestia/bin/v-add-mail-domain "admin" "$HOSTNAME"
 
-    if [[ "${CONTAINER_INFRA,,}" != "local" ]]; then
+    if [[ "${DEV_MODE,,}" != "yes" ]]; then
         /usr/local/hestia/bin/v-add-letsencrypt-host
     fi
 

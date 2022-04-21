@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+
+# Upload an image to the repository
+
+if [[ ! "$1" || "${1,,}" == "help" || "${1,,}" == "--help" || "${1,,}" == "-h" ]]; then
+    echo "image-push <image> <tag=all|version|latest|<any>>"
+    echo
+    echo "Tags:"
+    echo "  all:      Push image with \"version\" and \"latest\" tags."
+    echo "  version:  Push image using version as tag."
+    echo "            If the \"split_versions\" option is set to \"yes\" in the image settings, an image tag with the main version and another with the sub-version will be sent."
+    echo "  latest:   \"latest\" will be used as a tag if the image name does not have a base tag. If a base tag exists, it will be the \"latest\"."
+    echo "  <any>:    Use the image name removing the base tag(if any) with the given tag."
+    exit 0
+fi
+
+IMAGE_NAME="$1"
+TARGET_TAG="${2,,}" # all(version&latest)|version|latest|<any>
+TARGET_TAG="${TARGET_TAG:-version}"
+
+# Load data from images registered in docker-helper.yml
+source <(dhelper_yaml | grep "^DHELPER_images_" | sed -E "s/^(.*)$/export \1/g")
+
+# Get the image data in docker-helper.yml
+eval "SOURCE_IMAGE=\${DHELPER_images_${IMAGE_NAME}_source_image:?}"
+# "target_image" is useful in cases where it is necessary to send the image to a different repository like ECR
+# or simply to a repository with another name on DockerHub
+eval "ALT_TARGET_IMAGE=\${DHELPER_images_${IMAGE_NAME}_target_image:-$SOURCE_IMAGE}"
+eval "IMAGE_VERSION=\${DHELPER_images_${IMAGE_NAME}_version:-$HSTC_IMAGE_VERSION}"
+eval "USE_LOCAL_REPO=\$DHELPER_images_${IMAGE_NAME}_use_local_repo"
+eval "SEND_SPLIT_VERSIONS=\$DHELPER_images_${IMAGE_NAME}_split_versions"
+SEND_SPLIT_VERSIONS="${SEND_SPLIT_VERSIONS:-no}"
+
+if [[ "${USE_LOCAL_REPO,,}" == "yes" ]]; then
+    echo "Warning: This image is configured to build using a local repository and may be larger than necessary."
+
+    if tty -s; then
+        read -r -p "Are you sure you want to continue? [y/N]: " input_result
+        if [[ "${input_result,,}" != "y" && "${input_result,,}" != "yes" ]]; then
+            exit
+        fi
+    fi
+fi
+
+if [[ "$SOURCE_IMAGE" =~ : ]]; then
+    HESTIACP_IMAGE="$SOURCE_IMAGE-$IMAGE_VERSION"
+else
+    HESTIACP_IMAGE="$SOURCE_IMAGE:$IMAGE_VERSION"
+fi
+
+# Target image without version
+if [[ "$ALT_TARGET_IMAGE" =~ : ]]; then
+    TARGET_IMAGE="$ALT_TARGET_IMAGE-"
+else
+    TARGET_IMAGE="$ALT_TARGET_IMAGE:"
+fi
+
+TARGET_DEFAULT="$TARGET_IMAGE$IMAGE_VERSION"
+TARGET_BASE="$(echo "$TARGET_IMAGE" | sed -E "s/:.*$//")"
+
+echo "== Pushing $HESTIACP_IMAGE"
+echo
+
+# Send the image with the original name set in taget_image (Usually the version number with 3 digits)
+if [[ "$TARGET_TAG" == "all" || "$TARGET_TAG" == "version" ]]; then
+    echo "-- $TARGET_DEFAULT"
+
+    docker tag "$HESTIACP_IMAGE" "$TARGET_DEFAULT"
+    docker push "$TARGET_DEFAULT"
+    echo
+
+    # Send fragmented if in version number format
+    if [[ "${SEND_SPLIT_VERSIONS,,}" == "yes" && -n "$IMAGE_VERSION" ]]; then
+        N_VERSIONS="$(echo "$IMAGE_VERSION" | sed -En "s|^[^0-9]*([0-9]+)(\.[0-9]+)?(\.[0-9]+)?$|\1\2\3|p")"
+        if [[ "$N_VERSIONS" ]]; then
+            N_VERSION="$(echo "$N_VERSIONS" | awk -F "." '{print $1}')"
+            N_RELEASE="$(echo "$N_VERSIONS" | awk -F "." '{print $1"."$2}')"
+
+            # Send the version with the first 2 version numbers
+            if [[ -n "$N_RELEASE" && "$N_RELEASE" != "0.0" ]]; then
+                CUSTOM_TAG="${TARGET_IMAGE}$N_RELEASE"
+                echo "-- $CUSTOM_TAG"
+
+                docker tag "$HESTIACP_IMAGE" "$CUSTOM_TAG"
+                docker push "$CUSTOM_TAG"
+                echo
+            fi
+
+            # Send with major version number (first number)
+            if [[ -n "$N_VERSION" && "$N_VERSION" != "0" ]]; then
+                CUSTOM_TAG="${TARGET_IMAGE}$N_VERSION"
+                echo "-- $CUSTOM_TAG"
+
+                docker tag "$HESTIACP_IMAGE" "$CUSTOM_TAG"
+                docker push "$CUSTOM_TAG"
+                echo
+            fi
+        fi
+    fi
+fi
+
+# Latest tag
+if [[ "$TARGET_TAG" == "all" || "$TARGET_TAG" == "latest" ]] && ! [[ "$ALT_TARGET_IMAGE" =~ : ]]; then
+    LATEST_TAG="${TARGET_IMAGE}latest"
+
+    echo "-- $LATEST_TAG"
+    docker tag "$HESTIACP_IMAGE" "$LATEST_TAG"
+    docker push "$LATEST_TAG"
+    echo
+fi
+
+# Send versions with a custom tag
+if [[ "$TARGET_TAG" != "all" && "$TARGET_TAG" != "latest" && "$TARGET_TAG" != "version" ]]; then
+    #CUSTOM_TAG="${TARGET_IMAGE}$TARGET_TAG"
+    CUSTOM_TAG="${TARGET_BASE}:$TARGET_TAG"
+    echo "-- $CUSTOM_TAG"
+
+    docker tag "$HESTIACP_IMAGE" "$CUSTOM_TAG"
+    docker push "$CUSTOM_TAG"
+    echo
+fi

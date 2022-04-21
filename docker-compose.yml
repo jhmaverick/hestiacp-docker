@@ -3,17 +3,16 @@ version: "3.8"
 services:
 
   hestiacp:
-    image: "jhmaverick/hestiacp:${HESTIACP_TAG:-latest}"
+    image: "jhmaverick/hestiacp:latest"
     container_name: "hestiacp-server"
     restart: "unless-stopped"
-    hostname: "$HESTIACP_HOSTNAME"
+    hostname: "${HSTC_HOSTNAME:?Hostname not defined}"
     privileged: true
     depends_on:
       - mariadb
     environment:
-      SAFE_MODE: "${SAFE_MODE:-}"
-      CONTAINER_INFRA: "$CONTAINER_INFRA"
       MAIL_ADMIN: "${MAIL_ADMIN:-}"
+      AUTOSTART_DISABLED: "${AUTOSTART_DISABLED:-}"
     labels:
       - "Hestia Control Panel"
     ports:
@@ -62,7 +61,7 @@ services:
     volumes:
       - /data/mariadb:/var/lib/mysql
       - mariadb-logs:/var/log/mysql
-    command: [ "mysqld", "--innodb-flush-method=fsync", "--max-connections=1000", "--max-user-connections=150" ]
+    command: [ "mariadbd", "--max-connections=1000", "--max-user-connections=150", "--max-allowed-packet=128M" ]
     networks:
       - default
 
@@ -74,4 +73,4 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.18.0.0/16
+        - subnet: 172.50.0.0/16

@@ -1,32 +1,80 @@
 #!/usr/bin/env bash
 
-custom_args=""
+if [[ ! "$1" || "${1,,}" == "help" || "${1,,}" == "--help" || "${1,,}" == "-h" ]]; then
+    echo "image-build <image> [...<args>]"
+    echo
+    echo "Arguments:"
+    echo "  --no-cache                 Run build with \"--no-cache\"."
+    echo "  --pull-os                  Pull Debian image before build."
+    echo "  --progress=<value>         (auto|plain|tty) - Output format."
+    echo "  --show-cmd                 Display the generated \"docker build\" command without executing."
+    exit
+fi
 
-#target_name="$1"
-target_name="hestiacp"
-tag_prefix=""
+# Repository name in the docker-helper.yml
+IMAGE_NAME="$1"
+
+custom_args=""
+progress="auto"
+show_cmd=""
 
 args=("$@")
 for arg in ${args[@]}; do
     if [[ "$arg" == "--no-cache" ]]; then
         custom_args+=" --no-cache"
+    elif [[ "$(echo "$arg" | grep -E "^--progress=")" ]]; then
+        progress="$(echo "$arg" | sed -En "s|^--progress=[\"']*(.*)[\"']*|\1|p")"
+    elif [[ "$arg" == "--show-cmd" ]]; then
+        show_cmd="yes"
     elif [[ "$arg" == "--pull-os" ]]; then
         docker pull debian:buster
     fi
 done
 
-if [[ "$target_name" != "hestiacp" ]]; then
-    tag_prefix="$(echo "$target_name" | sed -En "s|^hestiacp\-||p")-"
+# Load data from images registered in docker-helper.yml
+source <(dhelper_yaml | grep "^DHELPER_images_" | sed -E "s/^(.*)$/export \1/g")
+
+# Get the image data in docker-helper.yml
+eval "SOURCE_IMAGE=\${DHELPER_images_${IMAGE_NAME}_source_image:?}"
+eval "USE_LOCAL_REPO=\$DHELPER_images_${IMAGE_NAME}_use_local_repo"
+eval "HESTIACP_BRANCH=\$DHELPER_images_${IMAGE_NAME}_branch"
+eval "IMAGE_VERSION=\${DHELPER_images_${IMAGE_NAME}_version:-$HSTC_IMAGE_VERSION}"
+
+if [[ "$SOURCE_IMAGE" =~ : ]]; then
+    HESTIACP_IMAGE="$SOURCE_IMAGE-$IMAGE_VERSION"
+else
+    HESTIACP_IMAGE="$SOURCE_IMAGE:$IMAGE_VERSION"
 fi
 
-docker image build $custom_args --force-rm \
-    --build-arg BUILDKIT_INLINE_CACHE=1 \
-    --build-arg HESTIA_VERSION="$HESTIA_VERSION" \
-    --build-arg HSTC_IMAGE_VERSION="$HSTC_IMAGE_VERSION" \
-    -t "jhmaverick/hestiacp:${tag_prefix}$HSTC_IMAGE_VERSION" \
-    -f "$PROJECT_ROOT/Dockerfile" \
-    --progress=plain \
-    "$PROJECT_ROOT"
+if [[ "${USE_LOCAL_REPO,,}" == "yes" ]]; then
+    if [[ -d "$PROJECT_ROOT/hestiacp" ]]; then
+        echo "The local hestia repository will be used in the build"
+        custom_args+=" --build-arg HESTIACP_SOURCE=local"
+    else
+        echo "Hestia repository not found in project root"
+        exit 1
+    fi
+fi
 
-#    --target "$target_name" \
+# Add variables used in the build
+declare -a build_vars=(HESTIACP_REPOSITORY HESTIACP_BRANCH MULTIPHP_VERSIONS MARIADB_CLIENT_VERSION ZLIB_VERSION)
+for var_name in "${build_vars[@]}"; do
+    if [[ -n "${!var_name}" ]]; then
+	    custom_args+=" --build-arg $var_name=${!var_name}"
+	fi
+done
 
+build_cmd="docker build --force-rm ${custom_args} \
+    --build-arg HSTC_IMAGE_VERSION=${IMAGE_VERSION} \
+    --progress=\"$progress\" \
+    -t \"$HESTIACP_IMAGE\" \
+    -f \"$PROJECT_ROOT/Dockerfile\" \
+    \"$PROJECT_ROOT\""
+
+if [[ "${show_cmd,,}" == "yes" ]]; then
+    echo "$build_cmd"
+    exit
+fi
+
+export DOCKER_BUILDKIT=1
+bash -c "$build_cmd"

@@ -2,6 +2,18 @@
 
 # Password generator
 
-LENGTH="${1:-16}"
+LENGTH=${1:-16}
+USE_SPECIAL_CHARACTERS="${2:-no}"
 
-head /dev/urandom | tr -dc A-Za-z0-9 | head -c $LENGTH
+MATRIX='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+if [[ "$USE_SPECIAL_CHARACTERS" == "yes" ]]; then
+    MATRIX+='_-+^~=%'
+fi
+
+PASS=""
+while [ ${N:=1} -le $LENGTH ]; do
+    PASS="$PASS${MATRIX:$(($RANDOM%${#MATRIX})):1}"
+    let N+=1
+done
+
+echo "$PASS"

@@ -1,5 +1,9 @@
 # syntax=docker/dockerfile:1.3-labs
+ARG HESTIACP_SOURCE=base
+
 FROM debian:buster AS hestiacp-base
+
+LABEL maintainer="João Henrique <joao_henriquee@outlook.com>"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=1 \
@@ -39,6 +43,16 @@ RUN dsr_tag="v1.5.4505"; \
 
 
 ###
+## Use local Hestia repository to build image
+###
+# Note: This process can increase the final image size and is only recommended during development.
+# For production images, give preference to installation by cloning from the repository.
+FROM hestiacp-base AS hestiacp-local
+
+COPY hestiacp /tmp/hestiacp
+
+
+###
 ## Install and cofigure Hestia
 ##
 ## * Clone the repository and perform a checkout for the chosen version tag;
@@ -46,26 +60,38 @@ RUN dsr_tag="v1.5.4505"; \
 ## * Compile Hestia packages;
 ## * Run the installer with the compiled packages.
 ###
-ARG HESTIA_VERSION
+FROM hestiacp-$HESTIACP_SOURCE AS hestiacp-installed
+
+ARG HESTIACP_REPOSITORY=https://github.com/hestiacp/hestiacp.git
+ARG HESTIACP_BRANCH
+
 ARG MULTIPHP_VERSIONS
 ARG MARIADB_CLIENT_VERSION
+# When a new version of zlib is released, the old one is removed and the build is broken.
+# This argument makes it possible to change the version without having to update the autocompile script.
+ARG ZLIB_VERSION
 
-RUN cd /tmp \
-    && git clone https://github.com/hestiacp/hestiacp.git \
+# Clones the official repository if the local has not been added
+RUN if [ ! -d /tmp/hestiacp ]; then \
+        cd /tmp; \
+        git clone $HESTIACP_REPOSITORY hestiacp; \
+    fi \
     && cd /tmp/hestiacp \
-    && git checkout "tags/${HESTIA_VERSION}" -b "${HESTIA_VERSION}" \
+    && if [ -n "$HESTIACP_BRANCH" ]; then \
+        git checkout "$HESTIACP_BRANCH" -b "docker-build"; \
+    fi \
 # Use debian installer to create installer version for docker
     && cp -af /tmp/hestiacp/install/hst-install-debian.sh /tmp/hestiacp/install/hst-install-debian-docker.sh \
 ### PHP
-    && if [ ! -z "$MULTIPHP_VERSIONS" ]; then \
+    && if [ -n "$MULTIPHP_VERSIONS" ]; then \
         sed -Ei "s|^(multiphp_v=).*|\1\(${MULTIPHP_VERSIONS}\)|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1; \
     fi \
 # prevents php installation errors
     && sed -Ei "s|(check_result \\\$\? \"php-fpm start failed\")|#\1|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
 ### MariaDB
 # Change MariaDB Version
-    && if [ ! -z "$MARIADB_CLIENT_VERSION" ]; then \
-      sed -Ei "s|^(mariadb_v=\").*(\")$|\1${MARIADB_CLIENT_VERSION}\2|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1; \
+    && if [ -n "$MARIADB_CLIENT_VERSION" ]; then \
+        sed -Ei "s|^(mariadb_v=\").*(\")$|\1${MARIADB_CLIENT_VERSION}\2|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1; \
     fi \
 # Remove MariaDB Server from installer
     && sed -Ei "s|\- MariaDB Database Server|\- MariaDB Database Client|g" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
@@ -84,6 +110,10 @@ RUN cd /tmp \
     && sed -Ei "s|(check_result \\\$\? \"can't create \\\$servername domain\")|#\1|" /tmp/hestiacp/install/hst-install-debian-docker.sh || exit 1 \
 # Avoid errors caused by "reload-or-restart" when trying to restart services
     && sed -Ei "s%systemctl reload\-or\-restart .*%service \"\\\$service\" reload > /dev/null 2>\&1 || service \"\\\$service\" restart > /dev/null 2>\&1%g" /tmp/hestiacp/bin/v-restart-service || exit 1 \
+### Temporary
+    && if [ -n "$ZLIB_VERSION" ]; then \
+        sed -Ei "s|^ZLIB_V=.*|ZLIB_V='$ZLIB_VERSION'|" /tmp/hestiacp/src/hst_autocompile.sh; \
+    fi \
 ### Compile Hestia Packages
     && cd /tmp/hestiacp/src \
     && bash ./hst_autocompile.sh --all --noinstall --keepbuild '~localsrc' \
@@ -91,7 +121,7 @@ RUN cd /tmp \
 ### Install Hestia
     && cd /tmp/hestiacp/install \
     && bash ./hst-install-debian-docker.sh --apache no --phpfpm yes --multiphp yes --vsftpd yes --proftpd no \
-        --named yes --mysql yes --postgresql no --exim yes --dovecot yes --sieve no --clamav yes --spamassassin yes \
+        --named yes --mysql yes --postgresql no --exim yes --dovecot yes --sieve yes --clamav yes --spamassassin yes \
         --iptables yes --fail2ban yes --quota yes --api yes --interactive no --port 8083 \
         --hostname hestiacp.localhost --email admin@admin.com --password admin --lang en \
         --with-debs /tmp/hestiacp/docker-src/deb/ --force \
@@ -142,7 +172,7 @@ RUN if grep "reload-or-restart" /usr/local/hestia/bin/v-restart-service; then \
     && echo "" > /usr/local/hestia/bin/v-delete-web-php
 
 
-FROM hestiacp-base AS hestiacp
+FROM hestiacp-installed AS hestiacp
 
 ###
 ## Final configuration
@@ -176,6 +206,6 @@ WORKDIR /
 ###
 ## Final version with persistent files applied
 ###
-#FROM hestiacp-base AS hestiacp-final
+#FROM hestiacp-installed AS hestiacp-final
 
 RUN bash /usr/local/hstc/install/add-default-persistent-files.sh

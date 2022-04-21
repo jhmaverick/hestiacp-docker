@@ -1,15 +1,23 @@
 variables:
   DOCKER_ENV: local
-  HESTIA_VERSION: 1.5.9
   HSTC_IMAGE_VERSION: 0.1.0
-repositories:
-  hestiacp:
-    source_image: jhmaverick/hestiacp:$HSTC_IMAGE_VERSION
+  DOCKER_REPOSITORY: jhmaverick/hestiacp
+images:
+  stable:
+    source_image: $DOCKER_REPOSITORY
+    branch: "tags/1.5.11"
     split_versions: yes
+  experimental:
+    source_image: $DOCKER_REPOSITORY:experimental
+    branch: "main"
+    version: 0.1.1
+    split_versions: yes
+  development:
+    source_image: $DOCKER_REPOSITORY:development
+    use_local_repo: yes
 
 scripts:
-  prod: "docker-compose up -d"
-  local: "docker-compose rm -sf && docker-compose up --force-recreate"
   dev: "docker-compose rm -sf && docker-compose up --force-recreate"
+  prod: "docker-compose up -d"
   recreate: "docker-compose rm -sf && docker-compose up -d"
   remove_all: "docker-compose rm -sf"

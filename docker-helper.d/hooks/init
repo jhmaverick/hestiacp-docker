@@ -2,11 +2,24 @@
 
 if [[ "$DOCKER_ENV" == "local" || "$DOCKER_ENV" == "testing" ]]; then
     mkdir -p "$PROJECT_ROOT/data"
+    mkdir -p "$PROJECT_ROOT/rootfs/usr/local/hstc/updates"
 
-    export CONTAINER_INFRA="local"
-    export HESTIACP_HOSTNAME="${HESTIACP_HOSTNAME:-$(hostname --fqdn)}"
-    export EXTERNAL_IP="${EXTERNAL_IP:-127.0.0.1}"
+    # Init .env file
+    if [[ ! -f "$PROJECT_ROOT/.env" && -f "$PROJECT_ROOT/.env.example" ]]; then
+        cp -a "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
+    fi
 
-    # Enable docker buildkit
+    export DEV_MODE="yes"
     export DOCKER_BUILDKIT=1
+
+    # Load data from images registered in docker-helper.yml
+    source <(dhelper_yaml | grep "^DHELPER_images_" | sed -E "s/^(.*)$/export \1/g")
+
+    eval "SOURCE_IMAGE=\${DHELPER_images_${HSTC_DEFAULT_IMAGE:-stable}_source_image:?}"
+    eval "IMAGE_VERSION=\${DHELPER_images_${HSTC_DEFAULT_IMAGE:-stable}_version:-$HSTC_IMAGE_VERSION}"
+    if [[ "$SOURCE_IMAGE" =~ : ]]; then
+        export HESTIACP_IMAGE="$SOURCE_IMAGE-$IMAGE_VERSION"
+    else
+        export HESTIACP_IMAGE="$SOURCE_IMAGE:$IMAGE_VERSION"
+    fi
 fi

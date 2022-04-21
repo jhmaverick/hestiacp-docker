@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+
+# Run "docker-compose up" with a different image than the default
+
+if [[ ! "$1" || "${1,,}" == "help" || "${1,,}" == "--help" || "${1,,}" == "-h" ]]; then
+    echo "image-up <image> [<run-rm>]"
+    exit 0
+fi
+
+IMAGE_NAME="${1:-${HSTC_DEFAULT_IMAGE:-stable}}" # The image that will be used
+run_rm="$2" # Remove existing containers before starting
+
+# Load data from images registered in docker-helper.yml
+source <(dhelper_yaml | grep "^DHELPER_images_" | sed -E "s/^(.*)$/export \1/g")
+
+eval "SOURCE_IMAGE=\${DHELPER_images_${IMAGE_NAME}_source_image:?}"
+eval "IMAGE_VERSION=\${DHELPER_images_${IMAGE_NAME}_version:-$HSTC_IMAGE_VERSION}"
+if [[ "$SOURCE_IMAGE" =~ : ]]; then
+    export HESTIACP_IMAGE="$SOURCE_IMAGE-$IMAGE_VERSION"
+else
+    export HESTIACP_IMAGE="$SOURCE_IMAGE:$IMAGE_VERSION"
+fi
+
+if [[ "${run_rm,,}" == "yes" ]]; then
+    docker-compose rm -sf
+fi
+
+docker-compose up
+#docker-compose up --force-recreate
