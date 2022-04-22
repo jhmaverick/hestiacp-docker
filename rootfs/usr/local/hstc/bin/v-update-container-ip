@@ -1,9 +1,8 @@
 #!/bin/bash
 
-# Update the container IP
+# Update container IP in docker network
 
 run_default_on_fail="${1:-yes}"
-
 
 # Retorna o IP do contêiner na rede do Docker
 network_docker_ip() {
@@ -21,7 +20,6 @@ network_docker_netmask() {
 network_docker_interface() {
     /sbin/ip route | awk '/default/ { print $5 }'
 }
-
 
 ip_local="$(network_docker_ip)"
 netmask_local="$(network_docker_netmask)"

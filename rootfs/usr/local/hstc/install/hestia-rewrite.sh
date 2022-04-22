@@ -50,7 +50,7 @@ sed -Ei "s|(^php_admin_value\[open_basedir\].*)|\1:/conf/usr/local/hestia/:/conf
 find /usr/local/hestia -type f -print0 | xargs -0 sed -i "s|/etc/nginx/conf.d/fastcgi_cache_pool.conf|/etc/nginx/conf.d/pre-domains/fastcgi_cache_pool.conf|g"
 
 # Remove "/conf" from key path to prevent error on comparison
-sed -Ei "s|(^maybe_key_path=\".*)|\1\nmaybe_key_path=\"\\\$\(echo \"\\\$maybe_key_path\" \| sed \"s/^\\\/conf//\"\)\"|" /usr/local/hestia/bin/v-check-api-key || exit 1
+sed -Ei "s|(^maybe_key_path=\".*)|\1\nmaybe_key_path=\"\\\$\(echo \"\\\$maybe_key_path\" \| sed \"s/^\\\/conf//\"\)\"|" /usr/local/hestia/bin/v-check-api-key
 
 
 ###

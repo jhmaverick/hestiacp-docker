@@ -8,9 +8,6 @@ env_read /var/run/hestiacp-startup.conf
 env_read /usr/local/hestia/conf/hstc.conf
 
 if [[ "$FIRST_RUNNING" == "yes" ]]; then
-    # Configuring server hostname
-    /usr/local/hestia/bin/v-change-sys-hostname "$HOSTNAME" 'no' >/dev/null 2>&1
-
     # Generating SSL certificate
     echo "[ * ] Generating default self-signed SSL certificate..."
     /usr/local/hestia/bin/v-generate-ssl-cert "$(hostname)" '' 'US' 'California' \

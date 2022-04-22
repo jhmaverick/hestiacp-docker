@@ -60,7 +60,7 @@ fi
 declare -a build_vars=(HESTIACP_REPOSITORY HESTIACP_BRANCH MULTIPHP_VERSIONS MARIADB_CLIENT_VERSION ZLIB_VERSION)
 for var_name in "${build_vars[@]}"; do
     if [[ -n "${!var_name}" ]]; then
-	    custom_args+=" --build-arg $var_name=${!var_name}"
+	    custom_args+=" --build-arg $var_name=\"${!var_name}\""
 	fi
 done
 

@@ -4,7 +4,7 @@
 
 source "/usr/local/hstc/func/env-file.sh"
 
-if [[ -f /var/run/hestiacp-startup.conf && ! "$(ls -A /conf)" ]]; then
+if [[ -f /var/run/hestiacp-startup.conf && ! "$(ls -A /conf)" && "$DEV_MODE" != "yes" ]]; then
     echo -e "\nWARNING:"
     echo -e "The \"/conf\" directory is empty but the container has already been started."
     echo -e "If the directory change was intentional, recreate the container and the data will be recreated."

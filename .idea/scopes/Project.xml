@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Project" pattern="file[hestiacp-docker]:*/&amp;&amp;!file[hestiacp-docker]:.idea//*&amp;&amp;!file[hestiacp-docker]:hestiacp//*" />
+</component>

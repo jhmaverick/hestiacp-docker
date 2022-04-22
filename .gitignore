@@ -1,5 +1,6 @@
 ### Project
 /rootfs/usr/local/hstc/build.conf
+/hestiacp/
 
 ### Docker
 /**/.env
