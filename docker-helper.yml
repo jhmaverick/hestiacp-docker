@@ -8,9 +8,9 @@ images:
     source_image: $DOCKER_REPOSITORY
     branch: "tags/1.5.13"
     split_versions: yes
-  experimental:
-    source_image: $DOCKER_REPOSITORY:experimental
-    branch: "main"
+  beta:
+    source_image: $DOCKER_REPOSITORY:beta
+    branch: "beta/1.6.0"
     version: 0.1.2
     split_versions: yes
   development:

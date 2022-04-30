@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [ stable, beta, experimental ]
+    branches: [ stable, beta ]
 
 env:
   DOCKER_ENV: github
