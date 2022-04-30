@@ -79,7 +79,7 @@ RUN if [ ! -d /tmp/hestiacp ]; then \
     fi \
     && cd /tmp/hestiacp \
     && if [ -n "$HESTIACP_BRANCH" ]; then \
-        git checkout "$HESTIACP_BRANCH" -b "build"; \
+        git checkout "$HESTIACP_BRANCH"; \
     fi \
 # Apply changes to docker
     && bash /tmp/generate-docker-installer.sh /tmp/hestiacp \
