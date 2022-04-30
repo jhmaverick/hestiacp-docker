@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: [ stable, beta, experimental ]
+
+env:
+  DOCKER_ENV: github
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      -
+        name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      -
+        name: Build and Push
+        run: |
+          bash ./docker-helper image-build ${GITHUB_REF##*/}
+          bash ./docker-helper image-push ${GITHUB_REF##*/} all

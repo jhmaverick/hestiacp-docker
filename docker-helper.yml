@@ -2,6 +2,7 @@ variables:
   DOCKER_ENV: local
   HSTC_IMAGE_VERSION: 0.1.1
   DOCKER_REPOSITORY: jhmaverick/hestiacp
+  ZLIB_VERSION: 1.2.12
 images:
   stable:
     source_image: $DOCKER_REPOSITORY

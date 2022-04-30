@@ -2,7 +2,6 @@
 
 if [[ "$DOCKER_ENV" == "local" || "$DOCKER_ENV" == "testing" ]]; then
     mkdir -p "$PROJECT_ROOT/data"
-    mkdir -p "$PROJECT_ROOT/rootfs/usr/local/hstc/updates"
 
     # Init .env file
     if [[ ! -f "$PROJECT_ROOT/.env" && -f "$PROJECT_ROOT/.env.example" ]]; then
