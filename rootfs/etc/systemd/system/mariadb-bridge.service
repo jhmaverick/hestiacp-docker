@@ -1,0 +1,15 @@
+[Unit]
+Description=Bridge for socket connections to MariaDB container
+
+[Service]
+Type=simple
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=mariadb-bridge
+
+ExecStart=/usr/bin/socat UNIX-LISTEN:/var/run/mysqld/mysqld.sock,fork,reuseaddr,unlink-early,mode=777 TCP:mariadb:3306
+#ExecStart=/usr/bin/socat UNIX-LISTEN:/var/run/mysqld/mysqld.sock,fork,reuseaddr,unlink-early,user=mysql,group=mysql,mode=777 TCP:mariadb:3306
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

@@ -20,12 +20,12 @@ CONTAINER_VERSION="$(env_get_value /usr/local/hestia/conf/hstc.conf "CONTAINER_V
 
 echo "-- HestiaCP Version: $HESTIA_VERSION"
 echo "-- Image Version: $HSTC_IMAGE_VERSION"
-if [[ "$CONTAINER_VERSION" && "$CONTAINER_VERSION" != "$HSTC_IMAGE_VERSION" ]]; then
+if [[ -n "$CONTAINER_VERSION" && "$CONTAINER_VERSION" != "$HSTC_IMAGE_VERSION" ]]; then
     echo "-- Container Version: $CONTAINER_VERSION"
 fi
 
 # Check if the container was recreated or if it is the first running
-if [[ ! "$(ls -A /conf)" ]]; then
+if [[ -z "$(ls -A /conf)" ]]; then
     echo "-- First running detected"
     echo "   The startup will initializing the volumes and apply the necessary settings."
     echo

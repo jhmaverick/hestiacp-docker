@@ -16,7 +16,7 @@ RUN apt-get -y update \
         jq acl openssl openvpn vim htop geoip-database dirmngr gnupg zlib1g-dev lsb-release apt-transport-https \
         ca-certificates perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev \
         libxslt1.1 libxslt1-dev libxslt-dev lftp libmaxminddb0 libmaxminddb-dev mmdb-bin python python3 python-pip \
-        python3-pip isync \
+        python3-pip isync gawk socat nmap \
     && test -L /sbin/chkconfig || ln -sf /usr/sbin/sysv-rc-conf /sbin/chkconfig \
     && test -L /sbin/nologin || ln -sf /usr/sbin/nologin /sbin/nologin \
     && rm -rf /var/lib/apt/lists/*
@@ -144,17 +144,18 @@ RUN if grep "reload-or-restart" /usr/local/hestia/bin/v-restart-service; then \
     && echo "" > /usr/local/hestia/bin/v-delete-web-php
 
 
-FROM hestiacp-installed AS hestiacp
-
-###
-## Final configuration
-###
-
 # Get "my_init" script from phusion baseimage
 # https://github.com/phusion/baseimage-docker
 RUN wget https://raw.githubusercontent.com/phusion/baseimage-docker/focal-1.0.0/image/bin/my_init -O /bin/my_init \
     && chmod +x /bin/my_init \
     && mkdir -p /etc/my_init.d
+
+
+###
+## HSTC configuration
+###
+
+FROM hestiacp-installed AS hestiacp-container
 
 COPY rootfs /
 ENV PATH=/usr/local/hstc/bin:$PATH
@@ -176,8 +177,11 @@ WORKDIR /
 
 
 ###
-## Final version with persistent files applied
+## Configure persistent data.
+##
+## You can build the image by skipping this part and continue the build in another Dockerfile.
+## Ex: ./docker-helper image-build stable --target=hestiacp-container
 ###
-#FROM hestiacp-installed AS hestiacp-final
+FROM hestiacp-container AS hestiacp
 
 RUN bash /usr/local/hstc/install/add-default-persistent-files.sh

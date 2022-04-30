@@ -9,6 +9,7 @@ env_read /var/run/hestiacp-startup.conf
 # Update hestia firewall
 /usr/local/hestia/bin/v-update-firewall
 
+systemctl start mariadb-bridge
 service_ctrl hestia start
 for php_service in /etc/init.d/php*-fpm; do
     service_name="$(basename -- "$php_service")"

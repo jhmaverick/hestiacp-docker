@@ -10,7 +10,7 @@ env_read /usr/local/hestia/conf/hstc.conf
 run_sql() {
     local current_pass
     current_pass="$(sed -e "s/\(.*PASSWORD='\)\([^']*\)\('.*\)/\2/" /usr/local/hestia/conf/mysql.conf)"
-    mysql -u "root" -p"$current_pass" -h "mariadb" -e "$@" -s --skip-column-names
+    mysql -h "mariadb" --protocol=TCP -u "root" -p"$current_pass" -e "$@" -s --skip-column-names
 }
 
 # Executa as rotinas da primeira execução que dependem dos serviços rodando

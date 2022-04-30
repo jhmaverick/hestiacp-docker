@@ -2,6 +2,7 @@
 
 **Warning:** The project is still in development and may have issues. Use at your own risk.
 
+* **[Changelog](https://github.com/jhmaverick/hestiacp-docker/blob/main/CHANGELOG.md)**
 * **[Docker Hub](https://hub.docker.com/r/jhmaverick/hestiacp)**
 * **[Github](https://github.com/jhmaverick/hestiacp-docker)**
 * **[Hestia Project](https://hestiacp.com/)**
@@ -17,7 +18,6 @@ HSTC_HOSTNAME="example.com" docker-compose up -d
 A random password will be generated for the admin user and will be displayed in the container logs on first run.
 
 **Note:** MariaDB runs in a separate container to optimize initialization time for the main container. 
-To connect to MariaDB in applications it is necessary to replace `localhost` with `mariadb` in the connection host.
 
 
 ## Build your own image

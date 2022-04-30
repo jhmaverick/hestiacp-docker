@@ -35,6 +35,9 @@ rm -f /var/run/fail2ban/*
 # Fix clamav run directory permissions
 chown clamav:clamav -R /var/run/clamav
 
+# Add dir for mariadb-bridge socket
+mkdir -p /var/run/mysqld
+
 
 ###
 ## Hestia - NGINX and PHP
@@ -57,12 +60,9 @@ sed -Ei "s|(^maybe_key_path=\".*)|\1\nmaybe_key_path=\"\\\$\(echo \"\\\$maybe_ke
 ## Hestia Templates
 ###
 # Change path to domains dir
-sed -Ei "s|/etc/nginx/conf.d|/etc/nginx/conf.d/domains|g" /usr/local/hestia/data/templates/web/nginx/caching.sh
+sed -Ei "s|/etc/nginx/conf.d|/etc/nginx/conf.d/pre-domains|g" /usr/local/hestia/data/templates/web/nginx/caching.sh
 
-# Remove IP from templates
-sed -Ei "s|(.*listen.*)%ip%:(.*)|\1\2|g" /usr/local/hestia/data/templates/web/nginx/*tpl
-sed -Ei "s|(.*listen.*)%ip%:(.*)|\1\2|g" /usr/local/hestia/data/templates/mail/nginx/*tpl
-sed -Ei "s|(.*listen.*)%ip%:(.*)|\1\2|g" /usr/local/hestia/data/templates/web/nginx/php-fpm/*tpl
+# Fix include files path
 sed -i "s|phppgadmin.inc|general/phppgadmin.inc|g" /usr/local/hestia/data/templates/web/nginx/php-fpm/*tpl
 sed -i "s|phpmyadmin.inc|general/phpmyadmin.inc|g" /usr/local/hestia/data/templates/web/nginx/php-fpm/*tpl
 
@@ -129,11 +129,3 @@ sed -Ei "s|#?Port .*|Port 22222|" /etc/ssh/sshd_config
 sed -i "s/PORT='22'/PORT='22222'/" /usr/local/hestia/data/firewall/rules.conf
 sed -i "s/PORT='22'/PORT='22222'/" /usr/local/hestia/data/firewall/chains.conf
 /usr/local/hestia/bin/v-update-firewall
-
-
-###
-## Exim and Dovecot
-###
-# Prevent errors when sending email
-sed -Ei "s|(^\s*helo_data =.*)|#\1|" /etc/exim4/exim4.conf.template
-sed -Ei "s|(^\s*interface =.*)|#\1|" /etc/exim4/exim4.conf.template

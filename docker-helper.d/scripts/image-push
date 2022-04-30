@@ -100,8 +100,12 @@ if [[ "$TARGET_TAG" == "all" || "$TARGET_TAG" == "version" ]]; then
 fi
 
 # Latest tag
-if [[ "$TARGET_TAG" == "all" || "$TARGET_TAG" == "latest" ]] && ! [[ "$ALT_TARGET_IMAGE" =~ : ]]; then
-    LATEST_TAG="${TARGET_IMAGE}latest"
+if [[ "$TARGET_TAG" == "all" || "$TARGET_TAG" == "latest" ]]; then
+    if [[ "$ALT_TARGET_IMAGE" =~ : ]]; then
+        LATEST_TAG="$ALT_TARGET_IMAGE"
+    else
+        LATEST_TAG="${TARGET_IMAGE}latest"
+    fi
 
     echo "-- $LATEST_TAG"
     docker tag "$HESTIACP_IMAGE" "$LATEST_TAG"

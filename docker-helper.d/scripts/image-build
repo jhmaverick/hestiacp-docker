@@ -6,7 +6,8 @@ if [[ ! "$1" || "${1,,}" == "help" || "${1,,}" == "--help" || "${1,,}" == "-h" ]
     echo "Arguments:"
     echo "  --no-cache                 Run build with \"--no-cache\"."
     echo "  --pull-os                  Pull Debian image before build."
-    echo "  --progress=<value>         (auto|plain|tty) - Output format."
+    echo "  --progress=<string>        (auto|plain|tty) - Output format."
+    echo "  --target=<string>          Set the target build stage to build."
     echo "  --show-cmd                 Display the generated \"docker build\" command without executing."
     exit
 fi
@@ -17,13 +18,16 @@ IMAGE_NAME="$1"
 custom_args=""
 progress="auto"
 show_cmd=""
+target=""
 
 args=("$@")
 for arg in ${args[@]}; do
     if [[ "$arg" == "--no-cache" ]]; then
         custom_args+=" --no-cache"
-    elif [[ "$(echo "$arg" | grep -E "^--progress=")" ]]; then
+    elif [[ -n "$(echo "$arg" | grep -E "^--progress=")" ]]; then
         progress="$(echo "$arg" | sed -En "s|^--progress=[\"']*(.*)[\"']*|\1|p")"
+    elif [[ -n "$(echo "$arg" | grep -E "^--target=")" ]]; then
+        target="$(echo "$arg" | sed -En "s|^--target=[\"']*(.*)[\"']*|\1|p")"
     elif [[ "$arg" == "--show-cmd" ]]; then
         show_cmd="yes"
     elif [[ "$arg" == "--pull-os" ]]; then
@@ -44,6 +48,10 @@ if [[ "$SOURCE_IMAGE" =~ : ]]; then
     HESTIACP_IMAGE="$SOURCE_IMAGE-$IMAGE_VERSION"
 else
     HESTIACP_IMAGE="$SOURCE_IMAGE:$IMAGE_VERSION"
+fi
+
+if [[ -n "$target" ]]; then
+    custom_args+=" --target=\"$target\""
 fi
 
 if [[ "${USE_LOCAL_REPO,,}" == "yes" ]]; then
