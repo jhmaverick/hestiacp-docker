@@ -52,7 +52,7 @@ Start services using another image:
 
 Example:
 ```bash
-./docker-helper image-up experimental
+./docker-helper image-up beta
 ```
 
 ### Local Access
