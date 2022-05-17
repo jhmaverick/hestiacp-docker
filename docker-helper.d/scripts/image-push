@@ -23,10 +23,10 @@ source <(dhelper_yaml | grep "^DHELPER_images_" | sed -E "s/^(.*)$/export \1/g")
 
 # Get the image data in docker-helper.yml
 eval "SOURCE_IMAGE=\${DHELPER_images_${IMAGE_NAME}_source_image:?}"
+eval "IMAGE_VERSION=\${DHELPER_images_${IMAGE_NAME}_version:?}"
 # "target_image" is useful in cases where it is necessary to send the image to a different repository like ECR
 # or simply to a repository with another name on DockerHub
 eval "ALT_TARGET_IMAGE=\${DHELPER_images_${IMAGE_NAME}_target_image:-$SOURCE_IMAGE}"
-eval "IMAGE_VERSION=\${DHELPER_images_${IMAGE_NAME}_version:-$HSTC_IMAGE_VERSION}"
 eval "USE_LOCAL_REPO=\$DHELPER_images_${IMAGE_NAME}_use_local_repo"
 eval "SEND_SPLIT_VERSIONS=\$DHELPER_images_${IMAGE_NAME}_split_versions"
 SEND_SPLIT_VERSIONS="${SEND_SPLIT_VERSIONS:-no}"
@@ -58,6 +58,11 @@ fi
 TARGET_DEFAULT="$TARGET_IMAGE$IMAGE_VERSION"
 TARGET_BASE="$(echo "$TARGET_IMAGE" | sed -E "s/:.*$//")"
 
+if [[ -z "$(docker images -q "$HESTIACP_IMAGE" 2> /dev/null)" ]]; then
+    echo "Failed to push image. Image \"$HESTIACP_IMAGE\" not found."
+    exit 1
+fi
+
 echo "== Pushing $HESTIACP_IMAGE"
 echo
 
@@ -71,30 +76,26 @@ if [[ "$TARGET_TAG" == "all" || "$TARGET_TAG" == "version" ]]; then
 
     # Send fragmented if in version number format
     if [[ "${SEND_SPLIT_VERSIONS,,}" == "yes" && -n "$IMAGE_VERSION" ]]; then
-        N_VERSIONS="$(echo "$IMAGE_VERSION" | sed -En "s|^[^0-9]*([0-9]+)(\.[0-9]+)?(\.[0-9]+)?$|\1\2\3|p")"
-        if [[ "$N_VERSIONS" ]]; then
-            N_VERSION="$(echo "$N_VERSIONS" | awk -F "." '{print $1}')"
-            N_RELEASE="$(echo "$N_VERSIONS" | awk -F "." '{print $1"."$2}')"
+        N_VERSIONS="$(echo "$IMAGE_VERSION" | sed -En "s|^[^0-9]*(([0-9]+)(\.[0-9]+)*)+$|\1|p")"
+        if [[ -n "$N_VERSIONS" ]]; then
+            read -a version_postitions <<< "${N_VERSIONS//./ }"
 
-            # Send the version with the first 2 version numbers
-            if [[ -n "$N_RELEASE" && "$N_RELEASE" != "0.0" ]]; then
-                CUSTOM_TAG="${TARGET_IMAGE}$N_RELEASE"
-                echo "-- $CUSTOM_TAG"
+            CURRENT_VERSION=""
+            for pos in ${version_postitions[*]}; do
+                if [[ -n "$CURRENT_VERSION" ]]; then
+                    CURRENT_VERSION+="."
+                fi
 
-                docker tag "$HESTIACP_IMAGE" "$CUSTOM_TAG"
-                docker push "$CUSTOM_TAG"
-                echo
-            fi
+                CURRENT_VERSION+="$pos"
+                if [[ "${TARGET_IMAGE}${CURRENT_VERSION}" != "$TARGET_DEFAULT" && ! "$CURRENT_VERSION" =~ ^(0+(\.0+)*)$ ]]; then
+                    CUSTOM_TAG="${TARGET_IMAGE}${CURRENT_VERSION}"
+                    echo "-- $CUSTOM_TAG"
 
-            # Send with major version number (first number)
-            if [[ -n "$N_VERSION" && "$N_VERSION" != "0" ]]; then
-                CUSTOM_TAG="${TARGET_IMAGE}$N_VERSION"
-                echo "-- $CUSTOM_TAG"
-
-                docker tag "$HESTIACP_IMAGE" "$CUSTOM_TAG"
-                docker push "$CUSTOM_TAG"
-                echo
-            fi
+                    docker tag "$HESTIACP_IMAGE" "$CUSTOM_TAG"
+                    docker push "$CUSTOM_TAG"
+                    echo
+                fi
+            done
         fi
     fi
 fi
@@ -115,7 +116,6 @@ fi
 
 # Send versions with a custom tag
 if [[ "$TARGET_TAG" != "all" && "$TARGET_TAG" != "latest" && "$TARGET_TAG" != "version" ]]; then
-    #CUSTOM_TAG="${TARGET_IMAGE}$TARGET_TAG"
     CUSTOM_TAG="${TARGET_BASE}:$TARGET_TAG"
     echo "-- $CUSTOM_TAG"
 

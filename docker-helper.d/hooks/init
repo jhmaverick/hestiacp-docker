@@ -15,7 +15,7 @@ if [[ "$DOCKER_ENV" == "local" || "$DOCKER_ENV" == "testing" ]]; then
     source <(dhelper_yaml | grep "^DHELPER_images_" | sed -E "s/^(.*)$/export \1/g")
 
     eval "SOURCE_IMAGE=\${DHELPER_images_${HSTC_DEFAULT_IMAGE:-stable}_source_image:?}"
-    eval "IMAGE_VERSION=\${DHELPER_images_${HSTC_DEFAULT_IMAGE:-stable}_version:-$HSTC_IMAGE_VERSION}"
+    eval "IMAGE_VERSION=\${DHELPER_images_${HSTC_DEFAULT_IMAGE:-stable}_version:?}"
     if [[ "$SOURCE_IMAGE" =~ : ]]; then
         export HESTIACP_IMAGE="$SOURCE_IMAGE-$IMAGE_VERSION"
     else

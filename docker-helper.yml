@@ -1,21 +1,27 @@
 variables:
   DOCKER_ENV: local
-  HSTC_IMAGE_VERSION: 0.1.1
   DOCKER_REPOSITORY: jhmaverick/hestiacp
   ZLIB_VERSION: 1.2.12
 images:
   stable:
     source_image: $DOCKER_REPOSITORY
-    branch: "tags/1.5.13"
+    branch: "tags/1.5.14"
+    version: 1.5.14
     split_versions: yes
   beta:
     source_image: $DOCKER_REPOSITORY:beta
+    branch: "tags/1.5.14"
+    version: 1.5.14
+    split_versions: yes
+  experimental:
+    source_image: $DOCKER_REPOSITORY:experimental
     branch: "beta/1.6.0"
-    version: 0.1.2
+    version: 1.6.0
     split_versions: yes
   development:
     source_image: $DOCKER_REPOSITORY:development
     use_local_repo: yes
+    version: 1.5.14
 
 scripts:
   dev: "docker-compose rm -sf && docker-compose up --force-recreate"

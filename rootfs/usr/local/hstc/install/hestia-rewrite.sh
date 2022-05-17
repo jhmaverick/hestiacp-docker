@@ -105,7 +105,8 @@ stream {
 NEOF
 
 # Remove domains with docker IP
-rm -f /etc/nginx/conf.d/172.*.conf
+#rm -f /etc/nginx/conf.d/172.*.conf
+mv /etc/nginx/conf.d/172.*.conf /etc/nginx/conf.d/domains
 
 # Move configurations file to "general"
 find /etc/nginx/conf.d/ -maxdepth 1 -type f -exec mv {} /etc/nginx/conf.d/general \;
